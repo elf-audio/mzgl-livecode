@@ -1,15 +1,16 @@
 
 #include "App.h"
-
+#include "LiveCodeApp.cpp"
 class MyApp : public App {
 public:
+    std::shared_ptr<App> liveCodeApp;
 	MyApp(Graphics &g)
-		: App(g) {}
+		: App(g) {
+        liveCodeApp = std::make_shared<LiveCodeApp>(g);
+    }
 
 	void draw() {
-		// g.clear(0, 0, 0);
-		g.setColor(randuf(), randuf(), randuf());
-		g.drawRect(randi(g.width / 2), randi(g.height / 2), g.width / 2, g.height / 2);
+        liveCodeApp->draw();
 	}
 };
 
