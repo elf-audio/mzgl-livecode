@@ -2,11 +2,13 @@
 #include "App.h"
 // #include "myApp.cpp"
 #include "RecompilingAppDylib.h"
+#include "EventDispatcher.h"
 class LiveCodeReloadingApp : public App {
 public:
-	App *liveCodeApp = nullptr;
 	RecompilingAppDylib dylib;
+	std::shared_ptr<EventDispatcher> eventDispatcher;
 	std::shared_ptr<AudioSystem> audioSystem;
+
 	LiveCodeReloadingApp(Graphics &g)
 		: App(g)
 		, dylib(g) {
@@ -15,96 +17,104 @@ public:
 		audioSystem->setup(2, 2);
 		audioSystem->bindToApp(this);
 		audioSystem->start();
+		dylib.willCloseDylib = [&]() {
+			if (eventDispatcher) eventDispatcher->exit();
+			eventDispatcher = nullptr;
+		};
 
-		dylib.recompiled = [&](void *dlib) { liveCodeApp = static_cast<App *>(dlib); };
+		dylib.recompiled = [&](std::shared_ptr<App> app) {
+			eventDispatcher = std::make_shared<EventDispatcher>(app);
+			eventDispatcher->setup();
+			eventDispatcher->resized();
+		};
 		dylib.setup("/Users/marek/mzgl-livecode/src/MyApp.h");
 	}
 
 	void audioIn(float *data, int frames, int chans) override {
 		if (dylib.tryLock()) {
-			if (liveCodeApp) liveCodeApp->audioIn(data, frames, chans);
+			if (eventDispatcher) eventDispatcher->app->audioIn(data, frames, chans);
 			dylib.unlock();
 		}
 	}
 	void audioOut(float *data, int frames, int chans) override {
 		if (dylib.tryLock()) {
-			if (liveCodeApp) liveCodeApp->audioOut(data, frames, chans);
+			if (eventDispatcher) eventDispatcher->app->audioOut(data, frames, chans);
 			dylib.unlock();
 		}
 	}
 
 	void update() override {
 		dylib.update();
-		if (liveCodeApp) liveCodeApp->update();
+		if (eventDispatcher) eventDispatcher->update();
 	}
 	void draw() override {
-		if (liveCodeApp) liveCodeApp->draw();
+		if (eventDispatcher) eventDispatcher->draw();
 	}
 
 	bool openUrl(ScopedUrlRef url) override {
-		if (liveCodeApp) return liveCodeApp->openUrl(url);
+		if (eventDispatcher) return eventDispatcher->openUrl(url);
 		return false;
 	}
 
 	// FILE DROP
 	void fileDragUpdate(float x, float y, int touchId, int numFiles) override {
-		if (liveCodeApp) liveCodeApp->fileDragUpdate(x, y, touchId, numFiles);
+		if (eventDispatcher) eventDispatcher->fileDragUpdate(x, y, touchId, numFiles);
 	}
 
 	// return true to accept, false to reject
 	void filesDropped(const std::vector<ScopedUrlRef> &paths, int touchId) override {
-		if (liveCodeApp) liveCodeApp->filesDropped(paths, touchId);
+		if (eventDispatcher) eventDispatcher->filesDropped(paths, touchId);
 	}
 
 	void fileDragCancelled(int touchId) override {
-		if (liveCodeApp) liveCodeApp->fileDragCancelled(touchId);
+		if (eventDispatcher) eventDispatcher->fileDragCancelled(touchId);
 	}
 	void fileDragExited(float x, float y, int id) override {
-		if (liveCodeApp) liveCodeApp->fileDragExited(x, y, id);
+		if (eventDispatcher) eventDispatcher->fileDragExited(x, y, id);
 	}
 
 	// return true if you can open, false if you can't
 	bool canOpenFiles(const std::vector<std::string> &paths) override {
-		if (liveCodeApp) return liveCodeApp->canOpenFiles(paths);
+		if (eventDispatcher) return eventDispatcher->canOpenFiles(paths);
 		return false;
 	}
 
-	void drawAfterUI() override {
-		if (liveCodeApp) liveCodeApp->drawAfterUI();
-	}
+	//	void drawAfterUI() override {
+	//		if (eventDispatcher) eventDispatcher->drawAfterUI();
+	//	}
 	void exit() override {
-		if (liveCodeApp) liveCodeApp->exit();
+		if (eventDispatcher) eventDispatcher->exit();
 	}
 
 	void resized() override {
-		if (liveCodeApp) liveCodeApp->resized();
+		if (eventDispatcher) eventDispatcher->resized();
 	}
 
 	void mouseScrolled(float x, float y, float dX, float dY) override {
-		if (liveCodeApp) liveCodeApp->mouseScrolled(x, y, dX, dY);
+		if (eventDispatcher) eventDispatcher->mouseScrolled(x, y, dX, dY);
 	}
 	void mouseZoomed(float x, float y, float zoom) override {
-		if (liveCodeApp) liveCodeApp->mouseZoomed(x, y, zoom);
+		if (eventDispatcher) eventDispatcher->mouseZoomed(x, y, zoom);
 	}
 
 	void touchOver(float x, float y) override {
-		if (liveCodeApp) liveCodeApp->touchOver(x, y);
+		if (eventDispatcher) eventDispatcher->touchOver(x, y);
 	}
 	void touchDown(float x, float y, int id) override {
-		if (liveCodeApp) liveCodeApp->touchDown(x, y, id);
+		if (eventDispatcher) eventDispatcher->touchDown(x, y, id);
 	}
 	void touchMoved(float x, float y, int id) override {
-		if (liveCodeApp) liveCodeApp->touchMoved(x, y, id);
+		if (eventDispatcher) eventDispatcher->touchMoved(x, y, id);
 	}
 	void touchUp(float x, float y, int id) override {
-		if (liveCodeApp) liveCodeApp->touchUp(x, y, id);
+		if (eventDispatcher) eventDispatcher->touchUp(x, y, id);
 	}
 
 	void keyDown(int key) override {
-		if (liveCodeApp) liveCodeApp->keyDown(key);
+		if (eventDispatcher) eventDispatcher->keyDown(key);
 	}
 	void keyUp(int key) override {
-		if (liveCodeApp) liveCodeApp->keyUp(key);
+		if (eventDispatcher) eventDispatcher->keyUp(key);
 	}
 };
 
