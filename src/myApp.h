@@ -64,16 +64,32 @@ public:
 	MyApp(Graphics &g)
 		: LiveCodeApp(g) {}
 
+	float xx = 0;
+	float yy = 0;
 	void draw() override {
 		g.clear(0);
 		ScopedAlphaBlend bl(g, true);
 		g.setColor(0, 0, 0, 0.015);
 		g.drawRect(0, 0, g.width, g.height);
-		g.setColor(1, 0, randuf());
+		g.setColor(1, yy / g.height, randuf());
 		//		g.setColor(randuf(), randuf() * 0.5, randuf());
 		float radius = sin(g.currFrameTime * 4) * 100;
-		float x		 = mapf(perlin1D(g.currFrameTime * 4), -3, 3, 0, g.width);
+		float x		 = mapf(perlin1D(g.currFrameTime * xx / 100.f), -3, 3, 0, g.width);
 		float y		 = mapf(perlin1D(g.currFrameTime + 200), -3, 3, 0, g.height);
 		g.drawCircle(x, y, radius);
+	}
+	void touchOver(float x, float y) override {
+		xx = x;
+		yy = y;
+	}
+	double dd = 0;
+	void audioOut(float *outs, int frames, int chans) override {
+		for (int i = 0; i < frames; i++) {
+			float x	  = sin(dd); //perlin1D(g.currFrameTime * 0.1f);
+			float oct = mapf(yy, 0, g.height, 2, 0.5);
+			dd += 256.f * oct * M_PI / 48000.f;
+			outs[i * chans]		= x;
+			outs[i * chans + 1] = x;
+		}
 	}
 };

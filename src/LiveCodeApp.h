@@ -4,6 +4,6 @@
 
 class LiveCodeApp : public App {
 public:
-    LiveCodeApp(Graphics &g)
-            : App(g) {}
+	LiveCodeApp(Graphics &g)
+		: App(g) {}
 };

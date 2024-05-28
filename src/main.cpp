@@ -6,11 +6,31 @@ class LiveCodeReloadingApp : public App {
 public:
 	App *liveCodeApp = nullptr;
 	RecompilingAppDylib dylib;
+	std::shared_ptr<AudioSystem> audioSystem;
 	LiveCodeReloadingApp(Graphics &g)
 		: App(g)
 		, dylib(g) {
+		audioSystem = std::make_shared<AudioSystem>();
+		audioSystem->setBufferSize(64);
+		audioSystem->setup(2, 2);
+		audioSystem->bindToApp(this);
+		audioSystem->start();
+
 		dylib.recompiled = [&](void *dlib) { liveCodeApp = static_cast<App *>(dlib); };
 		dylib.setup("/Users/marek/mzgl-livecode/src/MyApp.h");
+	}
+
+	void audioIn(float *data, int frames, int chans) override {
+		if (dylib.tryLock()) {
+			if (liveCodeApp) liveCodeApp->audioIn(data, frames, chans);
+			dylib.unlock();
+		}
+	}
+	void audioOut(float *data, int frames, int chans) override {
+		if (dylib.tryLock()) {
+			if (liveCodeApp) liveCodeApp->audioOut(data, frames, chans);
+			dylib.unlock();
+		}
 	}
 
 	void update() override {
