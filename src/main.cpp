@@ -3,20 +3,78 @@
 // #include "myApp.cpp"
 #include "RecompilingAppDylib.h"
 #include "EventDispatcher.h"
+
+std::string appTemplate = "#pragma once\n\n"
+						  "#include \"App.h\"\n\n"
+						  "class APP_NAME : public App {\n"
+						  "public:  APP_NAME(Graphics & g)"
+						  "	: App(g) {"
+						  "	}\n"
+						  "	\n"
+						  "	void draw() override {\n"
+						  "	}\n"
+						  "	\n"
+						  "	void audioOut(float *outs, int frames, int chans) override {\n"
+						  "	}\n"
+						  "};\n";
+
 class LiveCodeReloadingApp : public App {
 public:
 	RecompilingAppDylib dylib;
 	std::shared_ptr<EventDispatcher> eventDispatcher;
 	std::shared_ptr<AudioSystem> audioSystem;
 
+	void printUsageAndExit(const std::string &exeName) {
+		printf("Usage: %s Filename.h [-e] [--mzgl=/path/to/mzgl]\n", exeName.c_str());
+		printf("\n\tFilename.h is a file that will be created if it doesn't exist\n"
+			   "\n\t-e will open the file in Visual Studio Code(optional)\n"
+			   "\n\t--mzgl=/path/to/mzgl will specify the path to the mzgl library \n"
+			   "\t\tit needs to be the lib folder inside mzgl \n\n");
+		::exit(1);
+	}
 	LiveCodeReloadingApp(Graphics &g)
 		: App(g)
 		, dylib(g) {
-		audioSystem = std::make_shared<AudioSystem>();
-		audioSystem->setBufferSize(64);
-		audioSystem->setup(2, 2);
-		audioSystem->bindToApp(this);
-		audioSystem->start();
+		auto args = getCommandLineArgs();
+
+		std::string mzglRoot	= MZGL_LIBROOT;
+		bool shouldOpenInVsCode = false;
+		fs::path fileName;
+
+		std::string exeName = args[0];
+		args.erase(args.begin());
+
+		for (const auto &arg: args) {
+			if (arg == "-e") {
+				shouldOpenInVsCode = true;
+			} else if (arg.rfind("--mzgl=", 0) == 0) {
+				mzglRoot = arg.substr(7); // Extract the value after --mzgl=
+			} else if (arg.size() > 2 && arg.substr(arg.size() - 2) == ".h") {
+				fileName = arg;
+			} else {
+				printf("Unknown argument or invalid file extension: '%s'\n", arg.c_str());
+				printUsageAndExit(exeName);
+			}
+		}
+		if (fileName.empty()) {
+			printf("no filename specified\n");
+			printUsageAndExit(exeName);
+		}
+
+		if (fileName.string().find('/') == std::string::npos) {
+			fileName = (fs::current_path() / fileName);
+		}
+
+		if (!fs::exists(fileName)) {
+			fs::ofstream outFile(fileName);
+			auto newTemplate = appTemplate;
+			replaceAll(newTemplate, "APP_NAME", fileName.stem().string());
+			outFile << newTemplate;
+			outFile.close();
+		}
+
+		setupAudio();
+
 		dylib.willCloseDylib = [&]() {
 			if (eventDispatcher) eventDispatcher->exit();
 			eventDispatcher = nullptr;
@@ -27,9 +85,19 @@ public:
 			eventDispatcher->setup();
 			eventDispatcher->resized();
 		};
-		dylib.setup("/Users/marek/mzgl-livecode/src/MyApp.h");
+		printf("Using MZGL root: %s\n", mzglRoot.c_str());
+		dylib.setup(fileName, mzglRoot);
+		if (shouldOpenInVsCode) {
+			execute("code " + fileName.string());
+		}
 	}
-
+	void setupAudio() {
+		audioSystem = std::make_shared<AudioSystem>();
+		audioSystem->setBufferSize(64);
+		audioSystem->setup(2, 2);
+		audioSystem->bindToApp(this);
+		audioSystem->start();
+	}
 	void audioIn(float *data, int frames, int chans) override {
 		if (dylib.tryLock()) {
 			if (eventDispatcher) eventDispatcher->app->audioIn(data, frames, chans);

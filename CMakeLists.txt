@@ -1,4 +1,4 @@
-set(APP_NAME "MyApp")
+set(APP_NAME "mzgl-livecode")
 
 cmake_minimum_required(VERSION 3.18)
 
@@ -11,7 +11,6 @@ set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(MZGL_ROOT "../koala/lib/mzgl")
 get_filename_component(MZGL_ROOT_ABSOLUTE "${MZGL_ROOT}/lib" ABSOLUTE "${CMAKE_CURRENT_SOURCE_DIR}")
-add_definitions(-DSRCROOT= "${CMAKE_CURRENT_SOURCE_DIR}/src")
 add_definitions(-DMZGL_LIBROOT="${MZGL_ROOT_ABSOLUTE}")
 include_directories(src)
 

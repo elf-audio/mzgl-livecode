@@ -1,5 +1,5 @@
 
-#include "LiveCodeApp.h"
+#include "App.h"
 
 // Function to interpolate between two values
 float lerp(float a, float b, float t) {
@@ -58,12 +58,32 @@ float perlin1D(float x) {
 	// And add blended results from 2 corners of the square
 	return lerp(grad(a, x), grad(b, x - 1), u);
 }
+#include "DropDown.h"
+#include "Slider.h"
+float pitch	   = 440;
+float lfoFreq  = 2;
+float lfoDepth = 0.7;
+enum class LfoType { Sine, Square, Beep };
 
-class MyApp : public LiveCodeApp {
+LfoType lfoType = LfoType::Beep;
+class MyApp : public App {
 public:
 	MyApp(Graphics &g)
-		: LiveCodeApp(g) {}
+		: App(g) {
+		auto *dropDown	   = new DropDown(g, {"sine", "square", "beep"});
+		dropDown->onChange = [&](int i) { lfoType = static_cast<LfoType>(i); };
+		root->addChildren({dropDown,
+						   new Slider(g, "freq", pitch, 30, 9000, 4),
+						   new Slider(g, "lfo freq", lfoFreq, 0.1, 20, 4),
+						   new Slider(g, "lfo depth", lfoDepth)});
+	}
 
+	void resized() override {
+		int sp = 10;
+		root->position(sp, sp);
+		root->size(200, root->getNumChildren() * 50);
+		root->layoutChildrenAsGrid(1, root->getNumChildren(), sp);
+	}
 	float xx = 0;
 	float yy = 0;
 
@@ -80,15 +100,7 @@ public:
 		g.clear(col);
 
 		ScopedAlphaBlend bl(g, true);
-		//		g.setColor(0, 0, 0, 0.015);
-		//		g.drawRect(0, 0, g.width, g.height);
-		//		g.setColor(1, yy / g.height, randuf());
-		//		//		g.setColor(randuf(), randuf() * 0.5, randuf());
-		//		float radius = sin(g.currFrameTime * 4) * 100;
-		//		float x		 = mapf(perlin1D(g.currFrameTime * xx / 100.f), -3, 3, 0, g.width);
-		//		float y		 = mapf(perlin1D(g.currFrameTime + 200), -3, 3, 0, g.height);
-		//		g.drawCircle(x, y, radius);
-		LFO drawLFO;
+
 		std::vector<vec2> vs;
 		g.setColor(1);
 		for (int i = 0; i < g.width; i++) {
@@ -114,16 +126,14 @@ public:
 		return sigmoidValue * 2 - 1; // Scale to -1 to 1 range
 	}
 
-	bool down = false;
-	void touchDown(float x, float y, int id) override { down = true; }
-
-	void touchUp(float x, float y, int id) override { down = false; }
 	class LFO {
 	public:
+		LfoType type = LfoType::Sine;
 		double phase = 0;
 		float freq	 = 4;
 		float getSample() {
 			phase += 2.f * M_PI * freq / 48000.f;
+
 			float out = osc(static_cast<float>(phase / (2 * M_PI)));
 			return out;
 		}
@@ -171,6 +181,8 @@ public:
 			return out;
 		}
 		float osc(double normPhase) {
+			if (type == LfoType::Sine) return sin(normPhase * 2 * M_PI);
+
 			return sq(std::fmod(normPhase, 1)); //
 				//	analogSquareWave(normPhase); // *
 				//sawtoothWave(normPhase * 2);
@@ -181,23 +193,28 @@ public:
 	std::atomic<float> currVal {0.f};
 	float amp = 1;
 	void audioOut(float *outs, int frames, int chans) override {
-		lfo.freq	 = mapf(xx, 0, g.width, 0.2, 12, true);
+		lfo.freq	 = lfoFreq;
+		lfo.type	 = lfoType;
 		float lfoVal = 0;
 		for (int i = 0; i < frames; i++) {
 			lfoVal	   = lfo.getSample();
-			float freq = 128.f + 128.f * pow(2, lfoVal);
-			freq += perlin1D(dd * 0.001) * 0.5;
-			float x	  = analogSquareWave(dd); //perlin1D(g.currFrameTime * 0.1f);
-			float oct = mapf(yy, 0, g.height, 2, 0.5);
-			dd += freq * oct / 48000.f;
+			float freq = pitch + pitch * lfoDepth * pow(2, lfoVal);
+			freq += perlin1D(dd * 0.03) * 0.5;
+			float x = analogSquareWave(dd);
+			dd += freq / 48000.f;
 
-			if (!down) {
-				amp += 0.01;
+			if (lfo.type == LfoType::Beep) {
+				if (std::fmod(dd, 1) > 0.5) {
+					amp = 0;
+				} else {
+					amp = 1;
+				}
+
 			} else {
-				amp -= 0.001;
+				amp = 1;
 			}
 			amp = std::clamp(amp, 0.f, 1.f);
-			x *= amp;
+			x *= amp * 0.3;
 			outs[i * chans]		= x;
 			outs[i * chans + 1] = x;
 		}
