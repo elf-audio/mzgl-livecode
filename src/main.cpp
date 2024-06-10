@@ -40,15 +40,17 @@ public:
 		std::string mzglRoot	= MZGL_LIBROOT;
 		bool shouldOpenInVsCode = false;
 		fs::path fileName;
-
+		std::vector<std::string> includes;
 		std::string exeName = args[0];
 		args.erase(args.begin());
 
 		for (const auto &arg: args) {
 			if (arg == "-e") {
 				shouldOpenInVsCode = true;
+			} else if (arg.find("-I") == 0) {
+				includes.push_back(arg.substr(2));
 			} else if (arg.rfind("--mzgl=", 0) == 0) {
-				mzglRoot = arg.substr(7); // Extract the value after --mzgl=
+				mzglRoot = arg.substr(7);
 			} else if (arg.size() > 2 && arg.substr(arg.size() - 2) == ".h") {
 				fileName = arg;
 			} else {
@@ -86,7 +88,7 @@ public:
 			eventDispatcher->resized();
 		};
 		printf("Using MZGL root: %s\n", mzglRoot.c_str());
-		dylib.setup(fileName, mzglRoot);
+		dylib.setup(fileName, mzglRoot, includes);
 		if (shouldOpenInVsCode) {
 			execute("code " + fileName.string());
 		}
