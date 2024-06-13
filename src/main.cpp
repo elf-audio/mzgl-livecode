@@ -3,6 +3,8 @@
 // #include "myApp.cpp"
 #include "RecompilingAppDylib.h"
 #include "EventDispatcher.h"
+#include "AllMidiDevices.h"
+#include "readerwriterqueue.h"
 
 std::string appTemplate = "#pragma once\n\n"
 						  "#include \"App.h\"\n\n"
@@ -18,7 +20,7 @@ std::string appTemplate = "#pragma once\n\n"
 						  "	}\n"
 						  "};\n";
 
-class LiveCodeReloadingApp : public App {
+class LiveCodeReloadingApp : public App, public MidiListener {
 public:
 	RecompilingAppDylib dylib;
 	std::shared_ptr<EventDispatcher> eventDispatcher;
@@ -32,9 +34,13 @@ public:
 			   "\t\tit needs to be the lib folder inside mzgl \n\n");
 		::exit(1);
 	}
+AllMidiDevices midi;
+
 	LiveCodeReloadingApp(Graphics &g)
 		: App(g)
 		, dylib(g) {
+		midi.setup();
+		midi.addListener(this);
 		auto args = getCommandLineArgs();
 
 		std::string mzglRoot	= MZGL_LIBROOT;
@@ -108,6 +114,13 @@ public:
 			execute("code " + fileName.string());
 		}
 	}
+
+	moodycamel::ReaderWriterQueue<MidiMessage> midiQueue {200};
+
+	void midiReceived(const std::shared_ptr<MidiDevice> &device, const MidiMessage &m, uint64_t timestamp) override {
+		if (!eventDispatcher) return;
+		midiQueue.enqueue(m);
+	}
 	void setupAudio() {
 		audioSystem = std::make_shared<AudioSystem>();
 		audioSystem->setBufferSize(64);
@@ -118,12 +131,21 @@ public:
 	void audioIn(float *data, int frames, int chans) override {
 		if (dylib.tryLock()) {
 			if (eventDispatcher) eventDispatcher->app->audioIn(data, frames, chans);
+
 			dylib.unlock();
 		}
 	}
 	void audioOut(float *data, int frames, int chans) override {
 		if (dylib.tryLock()) {
-			if (eventDispatcher) eventDispatcher->app->audioOut(data, frames, chans);
+			if (eventDispatcher) {
+				MidiMessage msg;
+				while (midiQueue.try_dequeue(msg)) {
+					if (auto midiListener = dynamic_cast<MidiListener *>(eventDispatcher->app.get())) {
+						midiListener->midiReceived(nullptr, msg, 0);
+					}
+				}
+				eventDispatcher->app->audioOut(data, frames, chans);
+			}
 			dylib.unlock();
 		}
 	}
