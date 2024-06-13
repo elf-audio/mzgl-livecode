@@ -89,6 +89,21 @@ public:
 		};
 		printf("Using MZGL root: %s\n", mzglRoot.c_str());
 		dylib.setup(fileName, mzglRoot, includes);
+
+		fs::path srcDir = fs::path(fileName).parent_path();
+		for (const auto &entry: fs::directory_iterator(srcDir)) {
+			auto p = entry.path();
+			if (p.extension() == ".h" && p != fileName) {
+				dylib.addFileToWatch(p.string());
+				printf("watching %s\n", p.filename().c_str());
+			}
+		}
+
+
+
+
+
+
 		if (shouldOpenInVsCode) {
 			execute("code " + fileName.string());
 		}
