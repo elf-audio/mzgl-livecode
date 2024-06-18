@@ -20,7 +20,9 @@ std::string appTemplate = "#pragma once\n\n"
 						  "	}\n"
 						  "};\n";
 
-class LiveCodeReloadingApp : public App, public MidiListener {
+class LiveCodeReloadingApp
+	: public App
+	, public MidiListener {
 public:
 	RecompilingAppDylib dylib;
 	std::shared_ptr<EventDispatcher> eventDispatcher;
@@ -34,7 +36,7 @@ public:
 			   "\t\tit needs to be the lib folder inside mzgl \n\n");
 		::exit(1);
 	}
-AllMidiDevices midi;
+	AllMidiDevices midi;
 
 	LiveCodeReloadingApp(Graphics &g)
 		: App(g)
@@ -105,11 +107,6 @@ AllMidiDevices midi;
 			}
 		}
 
-
-
-
-
-
 		if (shouldOpenInVsCode) {
 			execute("code " + fileName.string());
 		}
@@ -117,7 +114,9 @@ AllMidiDevices midi;
 
 	moodycamel::ReaderWriterQueue<MidiMessage> midiQueue {200};
 
-	void midiReceived(const std::shared_ptr<MidiDevice> &device, const MidiMessage &m, uint64_t timestamp) override {
+	void midiReceived(const std::shared_ptr<MidiDevice> &device,
+					  const MidiMessage &m,
+					  uint64_t timestamp) override {
 		if (!eventDispatcher) return;
 		midiQueue.enqueue(m);
 	}
@@ -221,6 +220,9 @@ AllMidiDevices midi;
 		if (eventDispatcher) eventDispatcher->keyDown(key);
 	}
 	void keyUp(int key) override {
+		if (key == 114) {
+			dylib.recompile();
+		}
 		if (eventDispatcher) eventDispatcher->keyUp(key);
 	}
 };
