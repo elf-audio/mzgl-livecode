@@ -14,6 +14,7 @@ get_filename_component(MZGL_ROOT_ABSOLUTE "${MZGL_ROOT}/lib" ABSOLUTE "${CMAKE_C
 add_definitions(-DMZGL_LIBROOT="${MZGL_ROOT_ABSOLUTE}")
 include_directories(src)
 
+include(${MZGL_ROOT}/cmake/mzgl.cmake)
 set(SOURCES src/main.cpp)
 
 if (WIN32)
