@@ -149,9 +149,9 @@ public:
 		}
 	}
 
-	void update() override {
+	void updateDeprecated() override {
 		dylib.update();
-		if (eventDispatcher) eventDispatcher->update();
+		if (eventDispatcher) eventDispatcher->updateDeprecated();
 	}
 	void draw() override {
 		if (eventDispatcher) eventDispatcher->draw();
