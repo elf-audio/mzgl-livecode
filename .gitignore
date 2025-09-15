@@ -36,3 +36,7 @@ bin/*
 .DS_Store
 cmake-build-debug
 
+cpm-source-cache
+
+.vscode
+

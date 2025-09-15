@@ -5,6 +5,7 @@
 #include "EventDispatcher.h"
 #include "AllMidiDevices.h"
 #include "readerwriterqueue.h"
+#include "AudioSystem.h"
 
 std::string appTemplate = "#pragma once\n\n"
 						  "#include \"App.h\"\n\n"
@@ -26,7 +27,7 @@ class LiveCodeReloadingApp
 public:
 	RecompilingAppDylib dylib;
 	std::shared_ptr<EventDispatcher> eventDispatcher;
-	std::shared_ptr<AudioSystem> audioSystem;
+	std::shared_ptr<CoreAudioSystem> audioSystem;
 
 	void printUsageAndExit(const std::string &exeName) {
 		printf("Usage: %s Filename.h [-e] [--mzgl=/path/to/mzgl]\n", exeName.c_str());
@@ -121,7 +122,7 @@ public:
 		midiQueue.enqueue(m);
 	}
 	void setupAudio() {
-		audioSystem = std::make_shared<AudioSystem>();
+		audioSystem = std::make_shared<CoreAudioSystem>();
 		audioSystem->setBufferSize(64);
 		audioSystem->setup(2, 2);
 		audioSystem->bindToApp(this);
